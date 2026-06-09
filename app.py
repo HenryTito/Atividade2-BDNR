@@ -57,11 +57,70 @@ def create_usuario():
         "cpf_usuario": cpf,
         "email_usuario": email,
         "senha_usuario": senha,
-        "enderecos": enderecos
+        "enderecos": enderecos,
+        "favoritos": []
     }
 
     x = mycol.insert_one(usuario)
     print("Usuário inserido com ID", x.inserted_id)
+
+def add_favorito(email_usuario, nome_produto):
+    usuarios = db.usuario
+    produtos = db.produto
+
+    usuario = usuarios.find_one({"email_usuario": email_usuario})
+    if not usuario:
+        print("Usuário não encontrado!")
+        return
+
+    produto = produtos.find_one({"nome_produto": nome_produto})
+    if not produto:
+        print("Produto não encontrado!")
+        return
+
+    if nome_produto in usuario.get("favoritos", []):
+        print("Produto já está na lista de favoritos.")
+        return
+
+    usuarios.update_one(
+        {"_id": usuario["_id"]},
+        {"$addToSet": {"favoritos": nome_produto}}
+    )
+    print("Favorito adicionado com sucesso!")
+
+def listar_favoritos(email_usuario):
+    usuario = db.usuario.find_one({"email_usuario": email_usuario})
+
+    if not usuario:
+        print("Usuário não encontrado!")
+        return
+
+    favoritos = usuario.get("favoritos", [])
+    if not favoritos:
+        print("Usuário não possui favoritos cadastrados.")
+        return
+
+    print("Favoritos do usuário:")
+    for favorito in favoritos:
+        print(favorito)
+
+def remover_favorito(email_usuario, nome_produto):
+    usuarios = db.usuario
+    usuario = usuarios.find_one({"email_usuario": email_usuario})
+
+    if not usuario:
+        print("Usuário não encontrado!")
+        return
+
+    if nome_produto not in usuario.get("favoritos", []):
+        print("Produto não está na lista de favoritos.")
+        return
+
+    usuarios.update_one(
+        {"_id": usuario["_id"]},
+        {"$pull": {"favoritos": nome_produto}}
+    )
+    print("Favorito removido com sucesso!")
 
 def read_usuario(nome):
     mycol = db.usuario
@@ -247,7 +306,7 @@ while True:
         break
 
     if op == '1':
-        sub = input("1-Criar 2-Ler 3-Atualizar 4-Deletar: ")
+        sub = input("1-Criar 2-Ler 3-Atualizar 4-Deletar 5-Adicionar favorito 6-Listar favoritos 7-Remover favorito: ")
         if sub == '1':
             create_usuario()
         elif sub == '2':
@@ -256,6 +315,12 @@ while True:
             update_usuario(input("Nome: "))
         elif sub == '4':
             delete_usuario(input("Nome: "), input("Sobrenome: "))
+        elif sub == '5':
+            add_favorito(input("Email do usuário: "), input("Nome do produto: "))
+        elif sub == '6':
+            listar_favoritos(input("Email do usuário: "))
+        elif sub == '7':
+            remover_favorito(input("Email do usuário: "), input("Nome do produto: "))
 
     elif op == '2':
         sub = input("1-Criar 2-Ler 3-Atualizar 4-Deletar: ")
