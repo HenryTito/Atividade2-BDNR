@@ -78,13 +78,27 @@ def add_favorito(email_usuario, nome_produto):
         print("Produto não encontrado!")
         return
 
-    if nome_produto in usuario.get("favoritos", []):
+    favorito = {
+        "id_produto": str(produto["_id"]),
+        "nome_produto": produto["nome_produto"]
+    }
+
+    favoritos = usuario.get("favoritos", [])
+    ja_existe = any(
+        (
+            isinstance(item, dict)
+            and item.get("id_produto") == favorito["id_produto"]
+        )
+        or item == nome_produto
+        for item in favoritos
+    )
+    if ja_existe:
         print("Produto já está na lista de favoritos.")
         return
 
     usuarios.update_one(
         {"_id": usuario["_id"]},
-        {"$addToSet": {"favoritos": nome_produto}}
+        {"$addToSet": {"favoritos": favorito}}
     )
     print("Favorito adicionado com sucesso!")
 
@@ -102,23 +116,51 @@ def listar_favoritos(email_usuario):
 
     print("Favoritos do usuário:")
     for favorito in favoritos:
-        print(favorito)
+        if isinstance(favorito, dict):
+            print(f"ID: {favorito.get('id_produto')} | Nome: {favorito.get('nome_produto')}")
+        else:
+            print(f"Nome: {favorito}")
 
 def remover_favorito(email_usuario, nome_produto):
     usuarios = db.usuario
+    produtos = db.produto
     usuario = usuarios.find_one({"email_usuario": email_usuario})
 
     if not usuario:
         print("Usuário não encontrado!")
         return
 
-    if nome_produto not in usuario.get("favoritos", []):
+    produto = produtos.find_one({"nome_produto": nome_produto})
+    favorito_dict = None
+    if produto:
+        favorito_dict = {
+            "id_produto": str(produto["_id"]),
+            "nome_produto": produto["nome_produto"]
+        }
+
+    favoritos = usuario.get("favoritos", [])
+    existe = any(
+        (
+            isinstance(item, dict)
+            and (
+                (favorito_dict and item.get("id_produto") == favorito_dict["id_produto"])
+                or item.get("nome_produto") == nome_produto
+            )
+        )
+        or item == nome_produto
+        for item in favoritos
+    )
+    if not existe:
         print("Produto não está na lista de favoritos.")
         return
 
+    pull_conditions = [nome_produto, {"nome_produto": nome_produto}]
+    if favorito_dict:
+        pull_conditions.append(favorito_dict)
+
     usuarios.update_one(
         {"_id": usuario["_id"]},
-        {"$pull": {"favoritos": nome_produto}}
+        {"$pull": {"favoritos": {"$in": pull_conditions}}}
     )
     print("Favorito removido com sucesso!")
 
